@@ -42,12 +42,16 @@ defmodule DungeonAndDragonsWeb.PageLive do
     {:noreply, push_event(socket, "new_user", Map.delete(payload, :root_pid))}
   end
 
-  def handle_info(%{topic: "users", event: "move", payload: %{id: id, x: x, y: y}}, socket) do
-    {:noreply, push_event(socket, "move_user", %{id: id, x: x, y: y})}
-  end
-
   def handle_info(%{topic: "users", event: "disconnect", payload: %{id: id}}, socket) do
     {:noreply, push_event(socket, "delete_user", %{id: id})}
+  end
+
+  def handle_info(%{topic: "users", event: "move", payload: %{id: id}}, %{id: id} = socket) do
+    {:noreply, socket}
+  end
+
+  def handle_info(%{topic: "users", event: "move", payload: %{id: id, x: x, y: y}}, socket) do
+    {:noreply, push_event(socket, "move_user", %{id: id, x: x, y: y})}
   end
 
   def handle_event("update_movement", %{"user_id" => id, "x" => x, "y" => y}, %{id: id} = socket) do
