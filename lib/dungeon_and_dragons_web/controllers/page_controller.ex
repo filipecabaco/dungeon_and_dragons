@@ -4,13 +4,9 @@ defmodule DungeonAndDragonsWeb.PageLive do
 
   use Agent
 
-  def mount(_, _, %{root_pid: nil} = socket) do
-    {:ok, socket}
-  end
+  def mount(_, _, %{root_pid: nil} = socket), do: {:ok, socket}
 
   def mount(_params, _session, socket) do
-    DungeonAndDragonsWeb.Endpoint.subscribe("users")
-
     new_user = %{
       id: socket.id,
       char: Enum.random(@chars),
@@ -21,13 +17,12 @@ defmodule DungeonAndDragonsWeb.PageLive do
 
     :ets.insert(:users, {socket.id, new_user})
 
-    users = :ets.tab2list(:users)
-
     socket =
-      Enum.reduce(users, socket, fn {id, %{char: char, x: x, y: y}}, socket ->
-        push_event(socket, "new_user", %{id: id, char: char, x: x, y: y})
+      Enum.reduce(:ets.tab2list(:users), socket, fn {_, content}, socket ->
+        push_event(socket, "new_user", Map.delete(content, :root_pid))
       end)
 
+    DungeonAndDragonsWeb.Endpoint.subscribe("users")
     DungeonAndDragonsWeb.Endpoint.broadcast!("users", "join", new_user)
 
     {:ok, socket}
@@ -39,14 +34,12 @@ defmodule DungeonAndDragonsWeb.PageLive do
     """
   end
 
-  # Ignore self event
   def handle_info(%{topic: "users", event: "join", payload: %{id: id}}, %{id: id} = socket) do
     {:noreply, socket}
   end
 
   def handle_info(%{topic: "users", event: "join", payload: payload}, socket) do
-    payload = Map.delete(payload, :root_pid)
-    {:noreply, push_event(socket, "new_user", payload)}
+    {:noreply, push_event(socket, "new_user", Map.delete(payload, :root_pid))}
   end
 
   def handle_info(%{topic: "users", event: "move", payload: %{id: id, x: x, y: y}}, socket) do

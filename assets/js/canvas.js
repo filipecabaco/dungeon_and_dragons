@@ -1,49 +1,40 @@
 import Konva from "konva"
+const mapUrl = "https://i0.wp.com/dnd-maps.com/wp-content/uploads/Encounter-1-9fc2c38b-scaled.jpg"
 const Canvas = {
-    mounted() {
-        const user_id = this.el.getAttribute("user_id")
-        const container = document.querySelector('#canvas');
-        const stage = new Konva.Stage({
-            container: 'canvas',
-            draggable: true,
-            width: container.offsetWidth,
-            height: container.offsetHeight,
-        });
+    mounted() { draw(this) },
+    reconnected() { draw(this) }
+}
 
-        const mapLayer = new Konva.Layer()
-        Konva.Image.fromURL('https://i0.wp.com/dnd-maps.com/wp-content/uploads/Encounter-1-9fc2c38b-scaled.jpg', (img) => {
-            img.setAttrs({ scaleX: 1.5, scaleY: 1.5 })
-            mapLayer.add(img)
-        });
+function draw(hook) {
+    const user_id = hook.el.getAttribute("user_id")
+    const container = document.querySelector('#canvas');
+    const stage = new Konva.Stage({ container: 'canvas', draggable: true, width: container.offsetWidth, height: container.offsetHeight, });
+    const mapLayer = new Konva.Layer()
+    const playerLayer = new Konva.Layer()
 
-        const playerLayer = new Konva.Layer()
-        this.handleEvent('new_user', ({ id, char, x, y }) => {
-            Konva.Image.fromURL(`/images/chars/${char}`, (img) => {
-                let attrs = { width: 85, height: 85, draggable: true, x, y, id }
-                attrs = id == user_id ? { ...attrs, stroke: 'red', strokeWidth: 5, cornerRadius: 10 } : attrs
+    Konva.Image.fromURL(mapUrl, (img) => { mapLayer.add(img) });
+    stage.add(mapLayer)
+    stage.add(playerLayer)
 
-                img.setAttrs(attrs)
+    hook.handleEvent('new_user', ({ id, char, x, y }) => {
+        Konva.Image.fromURL(`/images/chars/${char}`, (img) => {
+            let attrs = { width: 60, height: 60, draggable: true, x, y, id }
+            attrs = id == user_id ? { ...attrs, stroke: 'red', strokeWidth: 5 } : attrs
+            img.setAttrs(attrs)
+            playerLayer.add(img)
 
-                img.on("dragstart", (evt) => { if (evt.target.attrs.id != user_id) { evt.target.stopDrag() } })
-                img.on("dragmove", (evt) => {
-                    let x = evt.target.attrs.x
-                    let y = evt.target.attrs.y
-                    this.pushEvent("update_movement", { user_id, x, y })
-                })
-                playerLayer.add(img)
+            img.on("dragstart", ({ target }) => {
+                if (target.attrs.id != user_id) { target.stopDrag() }
             })
-
+            img.on("dragmove", ({ target: { attrs: { x, y } } }) => {
+                hook.pushEvent("update_movement", { user_id, x, y })
+            })
         })
+    })
+    hook.handleEvent('delete_user', ({ id }) => { stage.findOne(`#${id}`).destroy() })
+    hook.handleEvent('move_user', ({ id, x, y }) => { stage.findOne(`#${id}`).setAttrs({ x, y }) })
 
-        this.handleEvent('delete_user', ({ id }) => { stage.findOne(`#${id}`).destroy() })
-        this.handleEvent('move_user', ({ id, x, y }) => {
-            let elem = stage.findOne(`#${id}`)
-            elem.setAttrs({ x, y })
-        })
-
-        stage.add(mapLayer)
-        stage.add(playerLayer)
-    }
+    return stage
 }
 
 export default Canvas
